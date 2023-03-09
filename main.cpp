@@ -58,51 +58,23 @@ bool can_use_action(const State state, const Action action) {
 
     if (Actions::combo_action[int(action)] != Action::Null && state.last_action != Actions::combo_action[int(action)]) return false;
 
-    if (action == Action::PreciseTouch || action == Action::IntensiveSynthesis) {
-        if (state.condition != Condition::Good && state.condition != Condition::Excellent) return false;
-    } else if (action == Action::PrudentTouch || action == Action::PrudentSynthesis) {
-        if (state.effects[int(Effect::WasteNot)] != 0) return false;
-    } else if (action == Action::Groundwork) {
-        if (state.durability < get_durability_cost(state, action)) return false;
-    } else if (action == Action::TrainedFinesse) {
-        if (state.effects[int(Effect::InnerQuiet)] < 10) return false;
+    switch (action) {
+        case Action::PreciseTouch:
+        case Action::IntensiveSynthesis:
+            return state.condition == Condition::Good || state.condition == Condition::Excellent;
+        case Action::PrudentTouch:
+        case Action::PrudentSynthesis:
+            return state.effects[int(Effect::WasteNot)] == 0;
+        case Action::Groundwork:
+            return state.durability >= get_durability_cost(state, action);
+        case Action::TrainedFinesse:
+            return state.effects[int(Effect::InnerQuiet)] == 10;
+        default:
+            return true;
     }
-
-    return true;
 }
 
 bool should_use_action(const State state, const Action action) {
-    if (action == Action::Groundwork || action == Action::PreparatoryTouch) {
-        if (state.effects[int(Effect::WasteNot)] == 0) return false;
-    } else if (action == Action::Manipulation) {
-        if (state.effects[int(Effect::Manipulation)] != 0) return false;
-    } else if (action == Action::WasteNot || action == Action::WasteNot2) {
-        if (state.effects[int(Effect::WasteNot)] != 0) return false;
-    } else if (action == Action::ByregotsBlessing) {
-        if (state.effects[int(Effect::InnerQuiet)] < 6) return false;
-        if (state.effects[int(Effect::Innovation)] == 0 && state.effects[int(Effect::GreatStrides)] == 0) return false;
-    } else if (action == Action::GreatStrides) {
-        if (state.effects[int(Effect::GreatStrides)] != 0) return false;
-        if (state.effects[int(Effect::InnerQuiet)] < 6) return false;
-        if (state.effects[int(Effect::Veneration)] > 3) return false;
-    } else if (action == Action::Veneration) {
-        if (state.effects[int(Effect::Veneration)] > 3) return false;
-        if (state.effects[int(Effect::InnerQuiet)] != 0) return false;
-        if (state.effects[int(Effect::GreatStrides)] != 0) return false;
-        if (state.effects[int(Effect::Innovation)] > 3) return false;
-    } else if (action == Action::Innovation) {
-        if (state.effects[int(Effect::Innovation)] > 3) return false;
-        if (state.effects[int(Effect::MuscleMemory)] != 0) return false;
-        if (state.effects[int(Effect::Veneration)] > 3) return false;
-    } else if (action == Action::MasterMend) {
-        if (state.durability + 30 > Config::MAX_DURABILITY) return false;
-    } else if (action == Action::BasicTouch) {
-        if (state.last_action == Action::BasicTouch) return false;
-        if (state.last_action == Action::StandardTouch) return false;
-    } else if (action == Action::StandardTouch) {
-        if (state.last_action == Action::StandardTouch) return false;
-    }
-
     if (state.last_action == Action::Observe) {
         if (action != Action::FocusedSynthesis && action != Action::FocusedTouch) return false;
     } else if (state.last_action == Action::None) {
@@ -116,7 +88,41 @@ bool should_use_action(const State state, const Action action) {
     if (state.effects[int(Effect::MuscleMemory)] != 0)
         if (Actions::pim[int(action)] == 0.0 && Actions::qim[int(action)] != 0.0) return false;
         
-    return true;
+    switch (action) {
+        case Action::Groundwork:
+        case Action::PreparatoryTouch:
+            return state.effects[int(Effect::WasteNot)] != 0;
+        case Action::Manipulation:
+            return state.effects[int(Effect::Manipulation)] == 0;
+        case Action::WasteNot:
+        case Action::WasteNot2:
+            return state.effects[int(Effect::WasteNot)] == 0;
+        case Action::ByregotsBlessing:
+            return state.effects[int(Effect::InnerQuiet)] >= 6
+                && (state.effects[int(Effect::Innovation)] != 0 || state.effects[int(Effect::GreatStrides)] != 0);
+        case Action::GreatStrides:
+            return state.effects[int(Effect::GreatStrides)] == 0
+                && state.effects[int(Effect::InnerQuiet)] >= 6
+                && state.effects[int(Effect::Veneration)] <= 2;
+        case Action::Veneration:
+            return state.effects[int(Effect::Veneration)] <= 1
+                && state.effects[int(Effect::InnerQuiet)] == 0
+                && state.effects[int(Effect::GreatStrides)] == 0
+                && state.effects[int(Effect::Innovation)] <= 2;
+        case Action::Innovation:
+            return state.effects[int(Effect::Innovation)] <= 1
+                && state.effects[int(Effect::MuscleMemory)] == 0
+                && state.effects[int(Effect::Veneration)] <= 2;
+        case Action::MasterMend:
+            return state.durability + 30 <= Config::MAX_DURABILITY;
+        case Action::BasicTouch:
+            return state.last_action != Action::BasicTouch
+                && state.last_action != Action::StandardTouch;
+        case Action::StandardTouch:
+            return state.last_action != Action::StandardTouch;
+        default:
+            return true;
+    }
 }
 
 void apply_effect(State &state, const Effect effect, const int stacks) {
@@ -232,17 +238,17 @@ void trace(const State state, const float needed_progress) {
 
 int main() {
     Actions::init();
-
     State init = State(Config::MAX_CP, Config::MAX_DURABILITY);
+
     auto t1 = std::chrono::high_resolution_clock::now();
     solve(init);
     auto t2 = std::chrono::high_resolution_clock::now();
     auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+
     std::cout << sav.size() << ' ' << sav[std::hash<State>()(init)].size() << ' ' << dt.count() << "ms" << '\n';
     for (auto [p, q] : sav[std::hash<State>()(init)]) std::cout << "(" << p << ", " << q << ") ";
     std::cout << '\n';
     std::cout << get_max_quality(init, 10);
     trace(init, 10);
     std::cout << '\n';
-    return 0;
 }
