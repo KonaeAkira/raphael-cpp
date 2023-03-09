@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string>
-
 enum struct Effect {
     InnerQuiet,
     WasteNot,
@@ -22,5 +20,42 @@ enum struct Condition {
     Sturdy,
     Malleable,
     Primed,
+    COUNT
+};
+
+enum struct Action {
+    Null,
+    None,
+    BasicSynthesis,
+    BasicTouch,
+    MasterMend,
+    // Hasty Touch
+    // Rapid Synthesis
+    Observe,
+    // Tricks of the Trade
+    WasteNot,
+    Veneration,
+    StandardTouch,
+    GreatStrides,
+    Innovation,
+    // Final Appraisal
+    WasteNot2,
+    ByregotsBlessing,
+    PreciseTouch,
+    MuscleMemory,
+    CarefulSynthesis,
+    Manipulation,
+    PrudentTouch,
+    FocusedSynthesis,
+    FocusedTouch,
+    Reflect,
+    PreparatoryTouch,
+    Groundwork,
+    DelicateSynthesis,
+    IntensiveSynthesis,
+    // Trained Eye,
+    AdvancedTouch,
+    PrudentSynthesis,
+    TrainedFinesse,
     COUNT
 };
