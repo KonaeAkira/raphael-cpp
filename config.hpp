@@ -1,6 +1,6 @@
 #pragma once
 
 namespace Config {
-    const int MAX_CP = 200;
-    const int MAX_DURABILITY = 80;
+    const int MAX_CP = 661;
+    const int MAX_DURABILITY = 70;
 }
