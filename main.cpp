@@ -56,7 +56,7 @@ bool can_use_action(const State state, const Action action) {
     if (state.cp < get_cp_cost(state, action)) return false;
     if (state.durability <= 0) return false;
 
-    if (Actions::combo_action[int(action)] == Action::Null && state.last_action != Actions::combo_action[int(action)]) return false;
+    if (Actions::combo_action[int(action)] != Action::Null && state.last_action != Actions::combo_action[int(action)]) return false;
 
     if (action == Action::PreciseTouch || action == Action::IntensiveSynthesis) {
         if (state.condition != Condition::Good && state.condition != Condition::Excellent) return false;

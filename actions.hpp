@@ -68,7 +68,7 @@ namespace Actions {
         set_parameters(Action::GreatStrides, "Great Strides", 32, 0, 0.00, 0.00, Action::Null);
         set_parameters(Action::Innovation, "Innovation", 18, 0, 0.00, 0.00, Action::Null);
         // Final Appraisal
-        set_parameters(Action::WasteNot, "Waste Not II", 98, 0, 0.00, 0.00, Action::Null);
+        set_parameters(Action::WasteNot2, "Waste Not II", 98, 0, 0.00, 0.00, Action::Null);
         set_parameters(Action::ByregotsBlessing, "Byregot's Blessing", 24, 10, 0.00, 1.00, Action::Null);
         set_parameters(Action::PreciseTouch, "Precise Touch", 18, 10, 0.00, 1.50, Action::Null);
         set_parameters(Action::MuscleMemory, "Muscle Memory", 6, 10, 3.00, 0.00, Action::None);
