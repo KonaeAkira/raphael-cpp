@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.hpp"
+
 enum struct Action {
     Null,
     None,
@@ -40,15 +42,15 @@ enum struct Action {
 namespace Actions {
     std::string display_name[int(Action::COUNT)];
     int cp_cost[int(Action::COUNT)], dur_cost[int(Action::COUNT)];
-    float pim[int(Action::COUNT)], qim[int(Action::COUNT)];
+    unsigned pim[int(Action::COUNT)], qim[int(Action::COUNT)];
     Action combo_action[int(Action::COUNT)];
 
     void set_parameters(const Action action, std::string _display_name, int _cp_cost, int _dur_cost, float _pim, float _qim, Action _combo_action) {
         display_name[int(action)] = _display_name;
         cp_cost[int(action)] = _cp_cost;
         dur_cost[int(action)] = _dur_cost;
-        pim[int(action)] = _pim;
-        qim[int(action)] = _qim;
+        pim[int(action)] = _pim * Config::BASE_PROGRESS_MULTIPLIER;
+        qim[int(action)] = _qim * Config::BASE_QUALITY_MULTIPLIER;
         combo_action[int(action)] = _combo_action;
     }
 

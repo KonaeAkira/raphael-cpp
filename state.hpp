@@ -27,7 +27,7 @@ struct State {
         return Actions::dur_cost[int(action)];
     }
 
-    float get_progress_potency(const Action action) const {
+    unsigned get_progress_potency(const Action action) const {
         float condition_pim = 1.00;
         switch (condition) {
             case Condition::Malleable: condition_pim = 1.50; break;
@@ -37,10 +37,10 @@ struct State {
         if (effects[int(Effect::MuscleMemory)] > 0) effect_pim += 1.0;
         if (effects[int(Effect::Veneration)] > 0) effect_pim += 0.5;
         float action_pim = Actions::pim[int(action)];
-        return condition_pim * effect_pim * action_pim;
+        return (unsigned)(condition_pim * effect_pim * action_pim);
     }
 
-    float get_quality_potency(const Action action) const {
+    unsigned get_quality_potency(const Action action) const {
         float condition_qim = 1.00;
         switch (condition) {
             case Condition::Good: condition_qim = 1.50; break;
@@ -53,7 +53,7 @@ struct State {
         if (effects[int(Effect::Innovation)] != 0) effect_qim += 0.5;
         float action_qim = Actions::qim[int(action)];
         if (action == Action::ByregotsBlessing) action_qim += effects[int(Effect::InnerQuiet)] * 0.20;
-        return condition_qim * effect_qim * action_qim;
+        return (unsigned)(condition_qim * effect_qim * action_qim);
     }
 
     bool can_use_action(const Action action) const {

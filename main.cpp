@@ -10,7 +10,16 @@
 #include "actions.hpp"
 #include "config.hpp"
 
-typedef std::pair<float, float> entry;
+struct entry { unsigned prog: 16, qual: 16; };
+bool operator < (const entry lhs, const entry rhs) {
+    if (lhs.prog != rhs.prog) return lhs.prog < rhs.prog;
+    else return lhs.qual < rhs.qual;
+}
+bool operator > (const entry lhs, const entry rhs) {
+    if (lhs.prog != rhs.prog) return lhs.prog > rhs.prog;
+    else return lhs.qual > rhs.qual;
+}
+
 std::unordered_map<std::size_t, std::vector<entry>> sav;
 
 bool should_use_action(const State &state, const Action action) {
@@ -69,21 +78,22 @@ const std::vector<entry> &solve(const State &state) {
     std::vector<entry> tmp;
     for (const Action &action : ALL_ACTIONS) {
         if (!state.can_use_action(action) || !should_use_action(state, action)) continue;
-        float progress = state.get_progress_potency(action);
-        float quality = state.get_quality_potency(action);
+        const unsigned prog = state.get_progress_potency(action);
+        const unsigned qual = state.get_quality_potency(action);
         State new_state = state.use_action(action);
-        if (new_state.durability > 0) // final states aren't stored
+        if (new_state.durability > 0) { // only solve non-final states
             for (const auto &[x, y] : solve(new_state))
-                tmp.emplace_back(x + progress, y + quality);
-        else if (progress != 0.0) // last step must be progress-increase
-            tmp.emplace_back(progress, quality);
+                tmp.emplace_back(x + prog, y + qual);
+        }
+        else if (prog != 0.0) // last step must be progress-increase
+            tmp.emplace_back(prog, qual);
     }
 
     std::sort(tmp.begin(), tmp.end(), std::greater<entry>());
-    std::vector<std::pair<float, float>> front;
-    float max = -1.0;
+    std::vector<entry> front;
+    unsigned max = (unsigned)-1;
     for (const auto &[x, y] : tmp)
-        if (y > max) {
+        if (max == (unsigned)-1 || y > max) {
             max = y;
             front.emplace_back(x, y);
         }
@@ -91,41 +101,38 @@ const std::vector<entry> &solve(const State &state) {
     return (*(sav.emplace(hash, std::move(front)).first)).second;
 }
 
-float get_max_quality(const State state, const float needed_progress) {
+unsigned get_max_quality(const State state, const unsigned needed_progress) {
     if (state.durability > 0) {
-        std::size_t hash = std::hash<State>()(state);
-        const std::vector<std::pair<float, float>> &entries = sav[hash];
-        auto p = std::lower_bound(entries.rbegin(), entries.rend(), std::make_pair(needed_progress, (float)0.0));
-        if (p != entries.rend()) return p->second;
+        const std::vector<entry> &entries = sav[std::hash<State>()(state)];
+        const entry key = {needed_progress, 0};
+        auto iter = std::lower_bound(entries.rbegin(), entries.rend(), key);
+        if (iter != entries.rend()) return iter->qual;
     }
-    return -1.0;
+    return 0;
 }
 
-void trace(const State state, const float needed_progress) {
+void trace(const State state, const unsigned needed_progress) {
     if (state.durability <= 0) return;
-    float best_quality = -1.0;
-    float best_progress = 0.0;
+    unsigned best_prog = 0, best_qual = 0;
     Action best_action = Action::Null;
     for (const Action &action : ALL_ACTIONS) {
         if (!state.can_use_action(action) || !should_use_action(state, action)) continue;
-        float progress = state.get_progress_potency(action);
-        float quality = state.get_quality_potency(action);
+        unsigned prog = state.get_progress_potency(action);
+        unsigned qual = state.get_quality_potency(action);
         State new_state = state.use_action(action);
         if (new_state.durability > 0) {
-            float tmp = get_max_quality(new_state, needed_progress - progress);
-            if (tmp == -1.0) continue;
-            quality += tmp;
+            qual += get_max_quality(new_state, needed_progress - prog);
         } else {
-            if (progress < needed_progress) continue;
+            if (prog < needed_progress) continue;
         }
-        if (quality > best_quality) {
-            best_quality = quality;
-            best_progress = progress;
+        if (qual > best_qual) {
+            best_qual = qual;
+            best_prog = prog;
             best_action = action;
         }
     }
     std::cout << " > " << Actions::display_name[int(best_action)];
-    trace(state.use_action(best_action), needed_progress - best_progress);
+    trace(state.use_action(best_action), needed_progress - best_prog);
 }
 
 int main() {
@@ -141,7 +148,7 @@ int main() {
     std::cout << sav.size() << ' ' << sav[std::hash<State>()(init)].size() << ' ' << dt.count() << "ms" << '\n';
     for (auto [p, q] : sav[hash]) std::cout << "(" << p << ", " << q << ") ";
     std::cout << '\n';
-    std::cout << get_max_quality(init, 24.14);
-    trace(init, 24.14);
+    std::cout << get_max_quality(init, Config::MAX_PROGRESS);
+    trace(init, Config::MAX_PROGRESS);
     std::cout << '\n';
 }
