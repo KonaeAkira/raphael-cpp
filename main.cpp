@@ -8,17 +8,8 @@
 #include "enums.hpp"
 #include "state.hpp"
 #include "actions.hpp"
+#include "pareto.hpp"
 #include "config.hpp"
-
-struct entry { unsigned prog: 16, qual: 16; };
-bool operator < (const entry lhs, const entry rhs) {
-    if (lhs.prog != rhs.prog) return lhs.prog < rhs.prog;
-    else return lhs.qual < rhs.qual;
-}
-bool operator > (const entry lhs, const entry rhs) {
-    if (lhs.prog != rhs.prog) return lhs.prog > rhs.prog;
-    else return lhs.qual > rhs.qual;
-}
 
 std::unordered_map<std::size_t, std::vector<entry>> sav;
 
@@ -73,32 +64,19 @@ bool should_use_action(const State &state, const Action action) {
 
 const std::vector<entry> &solve(const State &state) {
     std::size_t hash = std::hash<State>()(state);
-    if (sav.contains(hash) != 0) return sav.at(hash);
-
-    std::vector<entry> tmp;
+    if (sav.count(hash) != 0) return sav.at(hash);
+    ParetoFrontBuilder builder;
     for (const Action &action : ALL_ACTIONS) {
         if (!state.can_use_action(action) || !should_use_action(state, action)) continue;
         const unsigned prog = state.get_progress_potency(action);
         const unsigned qual = state.get_quality_potency(action);
         State new_state = state.use_action(action);
-        if (new_state.durability > 0) { // only solve non-final states
-            for (const auto &[x, y] : solve(new_state))
-                tmp.emplace_back(x + prog, y + qual);
-        }
-        else if (prog != 0.0) // last step must be progress-increase
-            tmp.emplace_back(prog, qual);
+        if (new_state.durability > 0) builder.insert(solve(new_state), prog, qual);
+        else if (prog != 0.0) builder.insert(prog, qual);
     }
 
-    std::sort(tmp.begin(), tmp.end(), std::greater<entry>());
-    std::vector<entry> front;
-    unsigned max = (unsigned)-1;
-    for (const auto &[x, y] : tmp)
-        if (max == (unsigned)-1 || y > max) {
-            max = y;
-            front.emplace_back(x, y);
-        }
-
-    return (*(sav.emplace(hash, std::move(front)).first)).second;
+    sav.emplace(hash, builder.finalize());
+    return sav.at(hash);
 }
 
 unsigned get_max_quality(const State state, const unsigned needed_progress) {
@@ -139,7 +117,7 @@ int main() {
     Actions::init();
     State init = State(Config::MAX_CP, Config::MAX_DURABILITY);
     std::size_t hash = std::hash<State>()(init);
-
+    
     auto t1 = std::chrono::high_resolution_clock::now();
     solve(init);
     auto t2 = std::chrono::high_resolution_clock::now();
