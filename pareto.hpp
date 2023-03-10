@@ -10,13 +10,13 @@ struct entry {
 };
 
 bool operator < (const entry lhs, const entry rhs) {
-    if (lhs.prog != rhs.prog) return lhs.prog < rhs.prog;
-    else return lhs.qual < rhs.qual;
+    return ((std::uint32_t)lhs.prog << 16 | (std::uint32_t)lhs.qual)
+         < ((std::uint32_t)rhs.prog << 16 | (std::uint32_t)rhs.qual);
 }
 
 bool operator > (const entry lhs, const entry rhs) {
-    if (lhs.prog != rhs.prog) return lhs.prog > rhs.prog;
-    else return lhs.qual > rhs.qual;
+    return ((std::uint32_t)lhs.prog << 16 | (std::uint32_t)lhs.qual)
+         > ((std::uint32_t)rhs.prog << 16 | (std::uint32_t)rhs.qual);
 }
 
 class ParetoFrontBuilder {
@@ -37,7 +37,8 @@ public:
     }
     
     std::vector<entry> finalize() {
-        if (entries.size() < 10 || entries.size() < segments.size() * 2) { // std::sort
+        if (segments.size() <= 1) return entries;
+        if (entries.size() < segments.size() * 3) { // std::sort
             std::sort(entries.begin(), entries.end(), std::greater<entry>());
         } else { // merge sort
             std::vector<entry> tmp(entries);
