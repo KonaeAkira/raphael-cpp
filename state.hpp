@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "actions.hpp"
 #include "config.hpp"
 
@@ -124,14 +126,6 @@ struct State {
     }
 };
 
-bool operator == (const State lhs, const State rhs) {
-    return lhs.cp == rhs.cp
-        && lhs.durability == rhs.durability
-        && lhs.effects == rhs.effects
-        && lhs.condition == rhs.condition
-        && lhs.last_action == rhs.last_action;
-}
-
 template<> struct std::hash<State> {
     std::size_t operator()(State const& state) const noexcept {
         static const size_t BASE = 1e9 + 7;
@@ -142,3 +136,18 @@ template<> struct std::hash<State> {
         return (params_hash * BASE + action_hash) * BASE + effect_hash;
     }
 };
+
+bool operator == (const State lhs, const State rhs) {
+    return lhs.cp == rhs.cp
+        && lhs.durability == rhs.durability
+        && lhs.effects == rhs.effects
+        && lhs.condition == rhs.condition
+        && lhs.last_action == rhs.last_action;
+}
+
+std::ostream &operator << (std::ostream &os, const State &state) { 
+    const std::size_t hash = std::hash<State>()(state);
+    os << std::hex << "([" << hash << "]" << std::dec;
+    os << " CP: " << state.cp << " Dur: " << state.durability << ")";
+    return os;
+}

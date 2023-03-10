@@ -122,6 +122,7 @@ public:
             std::uint32_t qual = state.get_quality_potency(action);
             State new_state = state.use_action(action);
             if (new_state.durability != 0) qual += get_max_quality(new_state, min_prog - prog);
+            else if (prog < min_prog) continue;
             if (qual > best_qual) { best_qual = qual; best_action = action; }
         }
         return best_action;
