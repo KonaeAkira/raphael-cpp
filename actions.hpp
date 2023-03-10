@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 #include "enums.hpp"
 #include "config.hpp"
 
@@ -13,8 +15,8 @@ namespace Actions {
         display_name[int(action)] = _display_name;
         cp_cost[int(action)] = _cp_cost;
         dur_cost[int(action)] = _dur_cost;
-        pim[int(action)] = _pim * Config::BASE_PROGRESS_MULTIPLIER;
-        qim[int(action)] = _qim * Config::BASE_QUALITY_MULTIPLIER;
+        pim[int(action)] = static_cast<unsigned>(std::round(_pim * Config::BASE_PROGRESS_MULTIPLIER));
+        qim[int(action)] = static_cast<unsigned>(std::round(_qim * Config::BASE_QUALITY_MULTIPLIER));
         combo_action[int(action)] = _combo_action;
     }
 
