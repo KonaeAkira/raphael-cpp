@@ -54,7 +54,7 @@ struct State {
         if (effects[int(Effect::GreatStrides)] != 0) effect_qim += 1.0;
         if (effects[int(Effect::Innovation)] != 0) effect_qim += 0.5;
         float action_qim = Actions::qim[int(action)];
-        if (action == Action::ByregotsBlessing) action_qim += effects[int(Effect::InnerQuiet)] * 0.20;
+        if (action == Action::ByregotsBlessing) action_qim += Config::BASE_QUALITY_MULTIPLIER * effects[int(Effect::InnerQuiet)] * 0.20;
         return (unsigned)(condition_qim * effect_qim * action_qim);
     }
 
