@@ -16,12 +16,11 @@ typedef std::vector<std::uint32_t> ParetoFront;
 
 class Solver {
     static std::unordered_map<std::size_t, ParetoFront> sav;
-    std::uint32_t n = 0, m = 0, buf[1 << 16], ind[1 << 16];
+    std::uint32_t n = 0, m = 0, buf[1 << 16], ind[32];
 
     void __merge_sort(const std::uint32_t sav_n, const std::uint32_t sav_m) {
-        // sort results from subtrees (merge sort)
         std::uint32_t *src = buf + sav_n, *dst = buf + n;
-        for (std::uint32_t i = 0; sav_m + 1 != m; m = sav_m + (i - sav_m) / 2) {
+        for (std::uint32_t i; sav_m + 1 != m; m = sav_m + (i - sav_m) / 2) {
             ind[m] = n;
             for (i = sav_m; i < m; i += 2) { // iterate over segment indices
                 if (i + 2 <= m) { // merge 2 segments
@@ -53,18 +52,17 @@ class Solver {
 
     void __solve(const State &state, const std::uint32_t inc = 0) {
         const std::size_t hash = std::hash<State>()(state);
+        if (m == 0 || ind[m - 1] != n) ind[m++] = n; // create new segment if starting position differs from prev segment
 
         // if already solved -> write to buf and return
         if (sav.count(hash) != 0) {
-            ind[m++] = n;
             for (const std::uint32_t x : sav.at(hash))
                 buf[n++] = x + inc;
             return;
         }
 
-        const std::uint32_t sav_n = n;
-        const std::uint32_t sav_m = m;
-        ind[m++] = n;
+        const std::uint32_t sav_n = n; // same as ind[sav_m]
+        const std::uint32_t sav_m = m - 1;
 
         // solve all subtrees
         for (const Action action : ALL_ACTIONS) {
@@ -76,7 +74,8 @@ class Solver {
             else if (prog != 0) buf[n++] = prog << 16 | qual;
         }
 
-        if (n != sav_n) {
+        if (sav_m + 1 != m && ind[m - 1] == n) --m; // remove trailing segment if it is empty
+        if (sav_m + 1 != m) {
             __merge_sort(sav_n, sav_m);
             __build_pareto_front(sav_n);
         }
