@@ -16,7 +16,7 @@ typedef std::vector<std::uint32_t> ParetoFront;
 
 class Solver {
     static std::unordered_map<std::size_t, ParetoFront> sav;
-    std::uint32_t n = 0, m = 0, buf[1 << 16], ind[32];
+    std::uint32_t n = 0, m = 0, buf[1 << 16], ind[1 << 8];
 
     void __merge_sort(const std::uint32_t sav_n, const std::uint32_t sav_m) {
         std::uint32_t *src = buf + sav_n, *dst = buf + n;
