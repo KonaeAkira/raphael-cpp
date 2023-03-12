@@ -9,156 +9,80 @@
 #include "enums.hpp"
 #include "state.hpp"
 #include "actions.hpp"
+#include "pruning.hpp"
 #include "config.hpp"
 
 typedef std::vector<std::uint32_t> ParetoFront;
 
 class Solver {
     static std::unordered_map<std::size_t, ParetoFront> sav;
-    std::uint32_t n = 0, buf[1 << 16];
+    std::uint32_t n = 0, m = 0, buf[1 << 16], ind[1 << 16];
 
-    static bool should_use_action(const State &state, const Action action) {
-        if (state.last_action == Action::Observe) {
-            if (action != Action::FocusedSynthesis && action != Action::FocusedTouch) return false;
-        } else if (state.last_action == Action::None) {
-            if (action != Action::MuscleMemory && action != Action::Reflect) return false;
+    void __merge_sort(const std::uint32_t sav_n, const std::uint32_t sav_m) {
+        // sort results from subtrees (merge sort)
+        std::uint32_t *src = buf + sav_n, *dst = buf + n;
+        for (std::uint32_t i = 0; sav_m + 1 != m; m = sav_m + (i - sav_m) / 2) {
+            ind[m] = n;
+            for (i = sav_m; i < m; i += 2) { // iterate over segment indices
+                if (i + 2 <= m) { // merge 2 segments
+                    std::uint32_t l1 = ind[i] - sav_n, l2 = ind[i + 1] - sav_n, p = l1;
+                    const std::uint32_t r1 = l2, r2 = ind[i + 2] - sav_n;
+                    while (l1 != r1 && l2 != r2)
+                        if (src[l1] > src[l2]) dst[p++] = src[l1++];
+                        else dst[p++] = src[l2++];
+                    if (l1 != r1) std::memcpy(dst + p, src + l1, (r1 - l1) * sizeof(std::uint32_t));
+                    if (l2 != r2) std::memcpy(dst + p, src + l2, (r2 - l2) * sizeof(std::uint32_t));
+                } else { // copy 1 segment
+                    const std::uint32_t l = ind[i] - sav_n, r = ind[i + 1] - sav_n;
+                    std::memcpy(dst + l, src + l, (r - l) * sizeof(std::uint32_t));
+                }
+                ind[sav_m + (i - sav_m) / 2] = ind[i]; // write back beginning index of merged segment
+            }
+            std::swap(src, dst);
         }
-
-        if (state.effects[int(Effect::MuscleMemory)] != 0)
-            if (Actions::pim[int(action)] == 0 && Actions::qim[int(action)] != 0) return false;
-        if (state.effects[int(Effect::GreatStrides)] != 0)
-            if (action != Action::ByregotsBlessing) return false;
-        if (state.effects[int(Effect::InnerQuiet)] != 0)
-            if (Actions::pim[int(action)] != 0 && Actions::qim[int(action)] == 0) return false;
-            
-        switch (action) {
-            case Action::Groundwork:
-            case Action::PreparatoryTouch:
-                return state.effects[int(Effect::WasteNot)] != 0;
-            case Action::Manipulation:
-                return state.effects[int(Effect::Manipulation)] == 0;
-            case Action::WasteNot:
-            case Action::WasteNot2:
-                return state.effects[int(Effect::WasteNot)] == 0;
-            case Action::ByregotsBlessing:
-                return state.effects[int(Effect::InnerQuiet)] >= 6
-                    && (state.effects[int(Effect::Innovation)] != 0 || state.effects[int(Effect::GreatStrides)] != 0);
-            case Action::GreatStrides:
-                return state.effects[int(Effect::GreatStrides)] == 0
-                    && state.effects[int(Effect::InnerQuiet)] >= 6
-                    && state.effects[int(Effect::Veneration)] <= 2;
-            case Action::Veneration:
-                return state.effects[int(Effect::Veneration)] <= 1
-                    && state.effects[int(Effect::InnerQuiet)] == 0
-                    && state.effects[int(Effect::GreatStrides)] == 0
-                    && state.effects[int(Effect::Innovation)] <= 2;
-            case Action::Innovation:
-                return state.effects[int(Effect::Innovation)] <= 1
-                    && state.effects[int(Effect::MuscleMemory)] == 0
-                    && state.effects[int(Effect::Veneration)] <= 2;
-            case Action::MasterMend:
-                return state.durability + 30 <= Config::MAX_DURABILITY;
-            case Action::BasicTouch:
-            case Action::StandardTouch:
-                return state.last_action != Action::StandardTouch;
-            default:
-                return true;
-        }
+        if (src != buf + sav_n) // odd #iterations
+            std::memcpy(buf + sav_n, buf + n, (n - sav_n) * sizeof(std::uint32_t));
     }
 
-    void push_root(std::vector<std::pair<std::uint32_t, std::uint32_t>> &heap) const {
-        std::uint32_t i = 0, max = 0;
-    push_down:
-        if (i * 2 + 1 < heap.size() && buf[heap[max].first] < buf[heap[i * 2 + 1].first])
-            max = i * 2 + 1;
-        if (i * 2 + 2 < heap.size() && buf[heap[max].first] < buf[heap[i * 2 + 2].first])
-            max = i * 2 + 2;
-        if (max != i) {
-            std::swap(heap[i], heap[max]);
-            i = max;
-            goto push_down;
-        }
-    }
-
-    void push_leaf(std::vector<std::pair<std::uint32_t, std::uint32_t>> &heap) const {
-        std::uint32_t i = heap.size() - 1;
-        while (i != 0 && buf[heap[(i - 1) >> 1].first] < buf[heap[i].first]) {
-            std::swap(heap[(i - 1) >> 1], heap[i]);
-            i = (i - 1) >> 1;
-        }
-    }
-
-    ParetoFront __use_builtin_sort(const std::uint32_t s) {
-        std::sort(buf + s, buf + n, std::greater<std::uint32_t>());
-        std::uint32_t p = s;
-        for (std::uint32_t i = s + 1; i != n; ++i)
+    void __build_pareto_front(const std::uint32_t sav_n) {
+        std::uint32_t p = sav_n;
+        for (std::uint32_t i = sav_n + 1; i != n; ++i)
             if ((buf[i] & 0xffff) > (buf[p] & 0xffff)) buf[++p] = buf[i];
         n = p + 1;
-        return ParetoFront(buf + s, buf + n);
     }
 
-    ParetoFront __use_custom_sort(const std::uint32_t s, std::vector<std::pair<std::uint32_t, std::uint32_t>> &heap) {
-        ParetoFront pareto_front;
-        pareto_front.push_back(buf[heap.front().first]);
-        do {
-            if ((buf[heap.front().first] & 0xffff) > (pareto_front.back() & 0xffff)) {
-                pareto_front.push_back(buf[heap.front().first++]);
-                if (heap.front().first == heap.front().second) {
-                    heap.front() = heap.back();
-                    heap.pop_back();
-                }
-            } else {
-                do {
-                    heap.front().first += 1;
-                    if (heap.front().first == heap.front().second) {
-                        heap.front() = heap.back();
-                        heap.pop_back();
-                        break;
-                    }
-                } while ((buf[heap.front().first] & 0xffff) <= (pareto_front.back() & 0xffff));
-            }
-            push_root(heap);
-        } while (!heap.empty());
-        n = s + pareto_front.size();
-        std::memcpy(buf + s, &pareto_front.front(), pareto_front.size() * sizeof(std::uint32_t));
-        return pareto_front;
-    }
-
-    void solve(const State &state, const std::uint32_t inc = 0) {
+    void __solve(const State &state, const std::uint32_t inc = 0) {
         const std::size_t hash = std::hash<State>()(state);
+
+        // if already solved -> write to buf and return
         if (sav.count(hash) != 0) {
+            ind[m++] = n;
             for (const std::uint32_t x : sav.at(hash))
                 buf[n++] = x + inc;
             return;
         }
 
-        const std::uint32_t s = n;
-        std::vector<std::pair<std::uint32_t, std::uint32_t>> heap;
+        const std::uint32_t sav_n = n;
+        const std::uint32_t sav_m = m;
+        ind[m++] = n;
 
+        // solve all subtrees
         for (const Action action : ALL_ACTIONS) {
             if (!state.can_use_action(action) || !should_use_action(state, action)) continue;
             State new_state = state.use_action(action);
             const std::uint32_t prog = state.get_progress_potency(action);
             const std::uint32_t qual = state.get_quality_potency(action);
-            if (new_state.durability != 0) {
-                const std::uint32_t t = n;
-                solve(new_state, prog << 16 | qual);
-                if (t != n) {
-                    heap.emplace_back(t, n);
-                    push_leaf(heap);
-                }
-            } else if (prog != 0) {
-                buf[n++] = prog << 16 | qual;
-                heap.emplace_back(n - 1, n);
-                push_leaf(heap);
-            }
+            if (new_state.durability != 0) __solve(new_state, prog << 16 | qual);
+            else if (prog != 0) buf[n++] = prog << 16 | qual;
         }
 
-        if (s == n) sav.emplace(hash, ParetoFront());
-        else if (n - s < heap.size() * 3) sav.emplace(hash, __use_builtin_sort(s));
-        else sav.emplace(hash, __use_custom_sort(s, heap));
+        if (n != sav_n) {
+            __merge_sort(sav_n, sav_m);
+            __build_pareto_front(sav_n);
+        }
+        sav.emplace(hash, ParetoFront(buf + sav_n, buf + n));
 
-        for (std::uint32_t i = s; i != n; ++i) buf[i] += inc;
+        for (std::uint32_t i = sav_n; i != n; ++i) buf[i] += inc;
     }
 
 public:
@@ -173,7 +97,7 @@ public:
 
     Action get_best_action(const State state, const std::uint32_t min_prog) {
         if (state.durability == 0) return Action::Null;
-        solve(state); n = 0; // solve state and clear buffer
+        __solve(state); n = 0; m = 0; // solve state and clear buffer
         std::uint32_t best_qual = 0;
         Action best_action = Action::Null;
         for (const Action action : ALL_ACTIONS) {
